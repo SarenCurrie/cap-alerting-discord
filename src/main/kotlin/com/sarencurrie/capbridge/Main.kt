@@ -63,9 +63,9 @@ fun main() {
     println("Starting CAP Bridge")
 
 //    val feedUrl = URL("https://api.geonet.org.nz/cap/1.2/GPA1.0/feed/atom1.0/quake")
-//    val feedUrl = URL("https://alerts.metservice.com/cap/atom")
+    val feedUrl = URL("https://alerts.metservice.com/cap/atom")
 //    val feedUrl = URL("https://alerthub.civildefence.govt.nz/rss/pwp")
-    val feedUrl = URL("https://api.preparecenter.org/v1/org/nzl/alerts/rss")
+//    val feedUrl = URL("https://api.preparecenter.org/v1/org/nzl/alerts/rss")
 
     val input = SyndFeedInput()
     val feed: SyndFeed = input.build(XmlReader(feedUrl))
