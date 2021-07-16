@@ -11,7 +11,7 @@ import com.amazonaws.services.dynamodbv2.model.*
 
 class DynamoDbWrapper {
     private val client: AmazonDynamoDB = AmazonDynamoDBClientBuilder.standard()
-        .withEndpointConfiguration(AwsClientBuilder.EndpointConfiguration(System.getenv("DYNAMODB_ENDPOINT"), "us-west-2"))
+        .withEndpointConfiguration(AwsClientBuilder.EndpointConfiguration(System.getenv("DYNAMODB_ENDPOINT"), "ap-southeast-2"))
         .build()
 
     private var table: Table? = null

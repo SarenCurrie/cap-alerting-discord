@@ -40,6 +40,11 @@ const val ORANGE = "#FF8918"
 const val YELLOW = "#FFEB18"
 
 fun main() {
+    checkCap()
+    exitProcess(0)
+}
+
+fun checkCap() {
     val db = DynamoDbWrapper()
     db.createTable()
 
@@ -85,9 +90,9 @@ fun main() {
         val mapper = XmlMapper().registerKotlinModule().enable(ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, ACCEPT_SINGLE_VALUE_AS_ARRAY)
         val alert = mapper.readValue<Alert>(body)
 //        println(alert)
-//        if (db.hasSent(alert.identifier)) {
-//            continue
-//        }
+        if (db.hasSent(alert.identifier)) {
+            continue
+        }
 
         if (alert.info.expires > Date()) {
             if (isInArea(alert)) {
@@ -96,7 +101,7 @@ fun main() {
                 println("Sending message")
 
                 discordClient.textChannels
-                    .filter { channel -> channel.name == "alerts-test" }
+                    .filter { channel -> channel.name == "alerts" }
                     .forEach { channel -> channel.sendMessage(embed).complete() }
 
                 db.store(alert.identifier)
@@ -114,7 +119,6 @@ fun main() {
     val interval = (stopTime.time - startTime.time) / 1000
     print(interval)
     println(" seconds")
-    exitProcess(0)
 }
 
 private fun buildEmbed(
