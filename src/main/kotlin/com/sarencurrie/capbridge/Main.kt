@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature.ACCEPT_SINGLE_VALUE
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.mapbox.geojson.Point
 import com.rometools.rome.feed.synd.SyndFeed
 import com.rometools.rome.io.SyndFeedInput
 import com.rometools.rome.io.XmlReader
@@ -24,6 +25,7 @@ import java.awt.Polygon
 import java.awt.Rectangle
 import java.net.URI
 import java.net.URL
+import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
@@ -154,6 +156,12 @@ private fun buildEmbed(
         .addField("Severity", alert.info.severity.toString(), true)
         .addField("Certainty", alert.info.certainty.toString(), true)
         .addField("Area", alert.info.area.areaDesc, false)
+    val polygons = allPolygons(alert)
+    if (polygons != null) {
+        val mapUrl = generateMapUrl(polygons)
+        println(mapUrl)
+        builder.setImage(mapUrl)
+    }
     return builder.build()
 }
 
@@ -188,10 +196,12 @@ fun isInArea(alert: Alert): Boolean {
     if (alert.info.area.areaDesc.contains("Auckland")) {
         return true
     }
-    val area = alert.info.area.polygons?.map { getPolygonPoints(it) }
+    val area = allPolygons(alert)
     // Assuming missing area is whole country
-    return area == null || area.isEmpty() || area.any { doesIntersectAuckland(it) }
+    return area.isNullOrEmpty() || area.any { doesIntersectAuckland(it) }
 }
+
+private fun allPolygons(alert: Alert) = alert.info.area.polygons?.map { getPolygonPoints(it) }
 
 private fun getPolygonPoints(polygonString: String) = polygonString
     .split(" ")
@@ -209,6 +219,19 @@ private fun getPolygonPoints(polygonString: String) = polygonString
         }
     }
     .map { Pair(it.first.toDouble(), it.second.toDouble()) }
+
+
+private fun generateMapUrl(points: List<List<Pair<Double, Double>>>): String {
+    val encodedPolyline = URLEncoder.encode(getJsonMap(points), "UTF-8")
+    return "https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/geoJson(${encodedPolyline})/auto/400x400?access_token=${System.getenv("MAPBOX_TOKEN")}"
+}
+private fun getJsonMap(points: List<List<Pair<Double, Double>>>): String {
+    return com.mapbox.geojson.Polygon.fromLngLats(points.map { polygon ->
+        polygon.map {
+            Point.fromLngLat(it.first, it.second)
+        }
+    }).toJson()
+}
 
 private fun doesIntersectAuckland(a: List<Pair<Double, Double>>): Boolean {
     if (a.isEmpty() || a.size < 3) {
