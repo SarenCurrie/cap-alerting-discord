@@ -14,6 +14,7 @@ import com.sarencurrie.capbridge.alert.Severity
 import com.sarencurrie.capbridge.alert.Urgency
 import com.sarencurrie.capbridge.persistence.DynamoDbWrapper
 import net.dv8tion.jda.api.EmbedBuilder
+import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.entities.Activity
 import net.dv8tion.jda.api.entities.MessageEmbed
@@ -39,16 +40,17 @@ const val RED = "#FF181E"
 const val ORANGE = "#FF8918"
 const val YELLOW = "#FFEB18"
 
+val db: DynamoDbWrapper = DynamoDbWrapper()
+val startTime = Date()
+
 fun main() {
     checkCap()
     exitProcess(0)
 }
 
 fun checkCap() {
-    val db = DynamoDbWrapper()
     db.createTable()
 
-    val startTime = Date()
     println("starting Discord client")
 
     val builder = JDABuilder.createDefault(System.getenv("CAP_TOKEN"))
@@ -67,18 +69,24 @@ fun checkCap() {
 
     println("Starting CAP Bridge")
 
-//    val feedUrl = URL("https://api.geonet.org.nz/cap/1.2/GPA1.0/feed/atom1.0/quake")
-    val feedUrl = URL("https://alerts.metservice.com/cap/atom")
-//    val feedUrl = URL("https://alerthub.civildefence.govt.nz/rss/pwp")
-//    val feedUrl = URL("https://api.preparecenter.org/v1/org/nzl/alerts/rss")
+    val feeds = listOf(
+        URL("https://alerts.metservice.com/cap/atom"),
+        URL("https://alerthub.civildefence.govt.nz/rss/pwp"),
+        URL("https://api.preparecenter.org/v1/org/nzl/alerts/rss"),
+        // TODO: Geonet feed needs circle area support
+        // URL("https://api.geonet.org.nz/cap/1.2/GPA1.0/feed/atom1.0/quake")
+    )
 
+    feeds.forEach { processFeed(it, discordClient) }
+}
+
+fun processFeed(feedUrl: URL, discordClient: JDA) {
     val input = SyndFeedInput()
     val feed: SyndFeed = input.build(XmlReader(feedUrl))
 
     val client = HttpClient.newHttpClient()
 
     for (entry in feed.entries) {
-//        println(entry)
         if (entry.publishedDate < Date(Date().time - 1000 * 60 * 60 * HOURS_TO_IGNORE)) {
             print("Ignoring published more than $HOURS_TO_IGNORE hours ago: ")
             println(entry.title)
@@ -117,8 +125,7 @@ fun checkCap() {
 
     val stopTime = Date()
     val interval = (stopTime.time - startTime.time) / 1000
-    print(interval)
-    println(" seconds")
+    println("Ran for $interval seconds")
 }
 
 private fun buildEmbed(
@@ -129,7 +136,7 @@ private fun buildEmbed(
     try {
         builder
             .setTitle(alert.info.headline, alert.info.web)
-            .setAuthor(alert.info.senderName, alert.sender)//, "https://metservice.com/public/favicons/apple-touch-icon.png")
+            .setAuthor(alert.info.senderName, alert.sender)
             .setColor(Color.decode(colorCode))
             .setDescription(alert.info.description ?: "Description missing")
     } catch (e: Exception) {
@@ -190,7 +197,7 @@ fun isInArea(alert: Alert): Boolean {
     }
     val area = alert.info.area.polygons?.map { getPolygonPoints(it) }
     // Assuming missing area is whole country
-    return area == null || area.isEmpty() || area.any { doesIntersectAuckland(it) }
+    return area.isNullOrEmpty() || area.any { doesIntersectAuckland(it) }
 }
 
 private fun getPolygonPoints(polygonString: String) = polygonString
